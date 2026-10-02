@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lagrange · Cobb-Douglas interactivo</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.35.2/plotly.min.js"></script>
+<style>
+:root{--bg:#fff;--fg:#1f2937;--card:#f3f6fa;--accent:#0e7c86;--navy:#1f3a5f;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#111827;--fg:#e5e7eb;--card:#1f2937;--accent:#4fd1c5;--navy:#93c5fd}}
+:root[data-theme="dark"]{--bg:#111827;--fg:#e5e7eb;--card:#1f2937;--accent:#4fd1c5;--navy:#93c5fd}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:Calibri,Segoe UI,Arial,sans-serif}
+.wrap{max-width:1100px;margin:0 auto;padding:16px}
+h1{font-size:22px;color:var(--navy);margin:0 0 4px}
+.sub{margin:0 0 12px;font-size:14px}
+.grid{display:grid;grid-template-columns:280px 1fr;gap:16px}
+@media(max-width:800px){.grid{grid-template-columns:1fr}}
+.panel{background:var(--card);border-radius:8px;padding:14px}
+label{display:block;font-size:14px;margin-top:10px}
+label b{color:var(--accent)}
+input[type=range]{width:100%}
+.res{margin-top:16px;font-size:15px;line-height:1.7}
+.res b{color:var(--accent)}
+#plot{width:100%;height:520px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Multiplicadores de Lagrange · Cobb-Douglas</h1>
+<p class="sub">P(L,K) = b·L<sup>α</sup>·K<sup>1−α</sup> sujeto a mL + nK = p. Mueve los deslizadores y observa cómo cambia el óptimo.</p>
+<div class="grid">
+<div class="panel">
+<label>b = <b id="vb"></b><input type="range" id="b" min="0.5" max="5" step="0.5" value="1"></label>
+<label>α = <b id="va"></b><input type="range" id="a" min="0.1" max="0.9" step="0.05" value="0.5"></label>
+<label>m (costo de L) = <b id="vm"></b><input type="range" id="m" min="5" max="60" step="5" value="20"></label>
+<label>n (costo de K) = <b id="vn"></b><input type="range" id="n" min="5" max="80" step="5" value="30"></label>
+<label>p (presupuesto) = <b id="vp"></b><input type="range" id="p" min="200" max="3000" step="100" value="600"></label>
+<div class="res" id="res"></div>
+</div>
+<div id="plot"></div>
+</div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+function draw(){
+  const b=+$('b').value,a=+$('a').value,m=+$('m').value,n=+$('n').value,p=+$('p').value;
+  $('vb').textContent=b;$('va').textContent=a;$('vm').textContent=m;$('vn').textContent=n;$('vp').textContent=p;
+  const Lm=p/m,Km=p/n,Lo=a*p/m,Ko=(1-a)*p/n,Po=b*Math.pow(Lo,a)*Math.pow(Ko,1-a);
+  $('res').innerHTML=`L* = αp/m = <b>${Lo.toFixed(2)}</b><br>K* = (1−α)p/n = <b>${Ko.toFixed(2)}</b><br>P* = <b>${Po.toFixed(2)}</b><br>λ = P*/p = <b>${(Po/p).toFixed(4)}</b><br>Gasto en L: ${(a*100).toFixed(0)} % · en K: ${((1-a)*100).toFixed(0)} %`;
+  const N=40,xs=[],ys=[],z=[];
+  for(let i=0;i<N;i++){xs.push(Lm*i/(N-1));}
+  for(let j=0;j<N;j++){ys.push(Km*j/(N-1));}
+  for(let j=0;j<N;j++){const row=[];for(let i=0;i<N;i++){row.push(b*Math.pow(xs[i],a)*Math.pow(ys[j],1-a));}z.push(row);}
+  const cl=[],ck=[],cp=[],c0=[];
+  for(let i=0;i<=100;i++){const L=Lm*i/100,K=(p-m*L)/n;cl.push(L);ck.push(K);cp.push(b*Math.pow(L,a)*Math.pow(Math.max(K,0),1-a));c0.push(0);}
+  const data=[
+    {type:'surface',x:xs,y:ys,z:z,colorscale:'Viridis',opacity:0.65,showscale:false,name:'P(L,K)'},
+    {type:'scatter3d',mode:'lines',x:cl,y:ck,z:c0,line:{color:'red',width:6},name:'Restricción (plano L-K)'},
+    {type:'scatter3d',mode:'lines',x:cl,y:ck,z:cp,line:{color:'orange',width:7},name:'P sobre la restricción'},
+    {type:'scatter3d',mode:'lines',x:[Lo,Lo],y:[Ko,Ko],z:[0,Po],line:{color:'gray',dash:'dash',width:3},showlegend:false},
+    {type:'scatter3d',mode:'markers',x:[Lo],y:[Ko],z:[Po],marker:{size:7,color:'black'},name:`Óptimo (${Lo.toFixed(1)}, ${Ko.toFixed(1)})`}
+  ];
+  const fg=getComputedStyle(document.body).color;
+  const layout={margin:{l:0,r:0,t:0,b:0},paper_bgcolor:'rgba(0,0,0,0)',font:{color:fg},
+    scene:{xaxis:{title:'L (trabajo)'},yaxis:{title:'K (capital)'},zaxis:{title:'P'},camera:window._cam||{eye:{x:1.5,y:-1.6,z:0.9}}},
+    legend:{x:0,y:1,bgcolor:'rgba(0,0,0,0)'}};
+  Plotly.react('plot',data,layout,{responsive:true});
+}
+['b','a','m','n','p'].forEach(id=>$(id).addEventListener('input',draw));
+draw();
+$('plot').on&&$('plot').on('plotly_relayout',e=>{if(e['scene.camera'])window._cam=e['scene.camera'];});
+</script>
+</body>
+</html>
